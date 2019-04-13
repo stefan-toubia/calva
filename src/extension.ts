@@ -12,6 +12,7 @@ import TextDocumentContentProvider from './providers/content';
 import HoverProvider from './providers/hover';
 import { DefinitionProvider } from './providers/definition';
 import { CalvaSignatureHelpProvider } from './providers/signature';
+import { DocumentSymbolProvider } from './providers/symbol';
 import evaluator from './evaluate';
 import testRunner from './testRunner';
 import annotations from './providers/annotations';
@@ -159,7 +160,7 @@ function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.languages.registerHoverProvider(state.documentSelector, new HoverProvider()));
     context.subscriptions.push(vscode.languages.registerDefinitionProvider(state.documentSelector, new DefinitionProvider()));
     context.subscriptions.push(vscode.languages.registerSignatureHelpProvider(state.documentSelector, new CalvaSignatureHelpProvider(),  ' ', ' '));
-        
+    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider(state.documentSelector, new DocumentSymbolProvider()));
 
     vscode.workspace.registerTextDocumentContentProvider('jar', new TextDocumentContentProvider());
 
