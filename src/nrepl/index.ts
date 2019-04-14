@@ -370,6 +370,26 @@ export class NReplSession {
         })
     }
 
+    apropos(varQuery: any, ns?: string, fullDoc?: boolean) {
+        return new Promise<any>((resolve, reject) => {
+            let id = this.client.nextId;
+            this.messageHandlers[id] = (msg) => {
+                resolve(msg);
+                return true;
+            }
+            this.client.write({
+                op: "apropos",
+                // To workaround apropos middleware bug https://github.com/clojure-emacs/cider-nrepl/commit/cf9f3a0c98e239a6fb9ca2740ad665d129ecc17b#r33170134
+                "case-sensitive?": true,
+                "var-query": varQuery,
+                ...(ns != null ? { ns } : {}),
+                ...(fullDoc != null ? { "full-doc?": fullDoc } : {}),
+                id,
+                session: this.sessionId
+            })
+        })
+    }
+
     testNs(ns: string) {
         return new Promise<any>((resolve, reject) => {
             let id = this.client.nextId;
