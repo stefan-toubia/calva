@@ -1,7 +1,7 @@
-import * as model from "@calva/repl-interactor/js/model"
-export { getIndent } from "@calva/repl-interactor/js/indent"
+import * as model from "../../repl-interactor/client/model"
+export { getIndent } from "../../repl-interactor/client/indent"
 import * as vscode from "vscode"
-import * as utilities from '../../../utilities';
+import * as utilities from '../../utilities';
 
 let documents = new Map<vscode.TextDocument, model.LineInputModel>();
 

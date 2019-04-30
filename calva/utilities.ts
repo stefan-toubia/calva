@@ -7,9 +7,9 @@ import { NReplSession } from './nrepl';
 import { activeReplWindow } from './repl-window';
 const syntaxQuoteSymbol = "`";
 const { parseForms } = require('../cljs-out/cljs-lib');
-import * as docMirror from './calva-fmt/ts/docmirror';
-import { TokenCursor, LispTokenCursor } from '@calva/repl-interactor/js/token-cursor';
-import { Token } from '@calva/repl-interactor/js/clojure-lexer';
+import * as docMirror from './calva-fmt/docmirror';
+import { TokenCursor, LispTokenCursor } from './repl-interactor/client/token-cursor';
+import { Token } from './repl-interactor/client/clojure-lexer';
 
 
 export function stripAnsi(str: string) {
