@@ -111,24 +111,23 @@ const projectTypes: {
 
             for (let i = 0; i < keys.length; i++) {
                 let dep = keys[i];
-                out.push("update-in", ":dependencies", "conj", `"[${dep} \\"${dependencies[dep]}\\"]"`, '--');
+                out.push("update-in", ":dependencies", "conj", `[${dep} "${dependencies[dep]}"]`, '--');
             }
 
             keys = Object.keys(leinPluginDependencies);
             for (let i = 0; i < keys.length; i++) {
                 let dep = keys[i];
-                out.push("update-in", ":plugins", "conj", `"[${dep} \\"${leinPluginDependencies[dep]}\\"]"`, '--');
+                out.push("update-in", ":plugins", "conj", `[${dep} "${leinPluginDependencies[dep]}"]`, '--');
             }
 
             const useMiddleware = includeCljs ? [...middleware, ...cljsMiddleware] : middleware;
             for (let mw of useMiddleware) {
-                out.push("update-in", '"[:repl-options :nrepl-middleware]"', "conj", `"[\\"${mw.replace('"', '\\"')}\\"]"`, '--');
+                out.push("update-in", '"[:repl-options :nrepl-middleware]"', "conj", `["${mw}"]`, '--');
             }
 
             if (profiles.length) {
                 out.push("with-profile", profiles.map(x => x.substr(1)).join(','));
             }
-            //out.push("update-in", ":middleware", "conj", `cider-nrepl.plugin/middleware`, '--')
             out.push("repl", ":headless");
             return out;
         }
@@ -208,6 +207,7 @@ let watcher: fs.FSWatcher;
 const TASK_NAME = "Calva Jack-in";
 
 vscode.tasks.onDidStartTaskProcess(e => {
+    e.execution.task.runOptions
     if (e.execution.task.name == TASK_NAME) {
         if (watcher != undefined) {
             watcher.removeAllListeners();
