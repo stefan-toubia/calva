@@ -172,6 +172,15 @@
                         "default": "",
                         "description": "The root directory of your Clojure project, relative to the Workspace root"
                     },
+                    "calva.injectReblAtJackIn": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Should Calva Jack-in include REBL dependencies? (You need to also set calva.reblPath.)"
+                    },
+                    "calva.reblPath": {
+                        "type": "string",
+                        "description": "The full path to the REBL jar file. (Something like /path/to/rebl-VERSION.jar)"
+                    },
                     "calva.jokerPath": {
                         "type": "string",
                         "default": "joker",
