@@ -268,11 +268,28 @@ type customCLJSREPLType = {
 function createCustomCLJSReplType(custom: customCLJSREPLType): ReplType {
     return {
         name: custom.name,
-        connect: (session, name, checkFn) => {
+        connect: async (session, name, checkFn) => {
             const chan = state.outputChannel();
-            state.extensionContext.workspaceState.update('cljsReplTypeHasBuilds', false);
-            state.cursor.set('cljsBuild', null);
-            const initCode = custom.startCode;
+            let initCode = custom.startCode;
+            const hasBuilds = custom.startCode.search(/{{build}}/) >= 0;
+            state.extensionContext.workspaceState.update('cljsReplTypeHasBuilds', hasBuilds);
+            if (hasBuilds) {
+                let build = await util.quickPickSingle({
+                    values: [],
+                    placeHolder: "Select which build to connect to",
+                    saveAs: "figwheel-main-build"
+                });
+                if (build) {
+                    state.cursor.set('cljsBuild', build);
+                    initCode = initCode.replace("{{build}}", build);
+                } else {
+                    chan.appendLine("Connection aborted.");
+                    throw "Aborted";
+                }
+            } else {
+                state.cursor.set('cljsBuild', null);
+            }
+            
             let outputProcessors: processOutputFn[] = [];
             if (custom.startingRegExp) {
                 outputProcessors.push((output) => {

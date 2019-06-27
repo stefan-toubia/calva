@@ -17,10 +17,10 @@ export function stripAnsi(str: string) {
 }
 
 async function quickPickSingle(opts: { values: string[], saveAs?: string, placeHolder: string, autoSelect?: boolean }) {
-    if (opts.values.length == 0)
-        return;
+    //if (opts.values.length == 0)
+    //    return;
     let selected: string;
-    let saveAs: string = opts.saveAs ? `qps-${opts.saveAs}` : null;
+    let saveAs: string = opts.saveAs ? `qp-${opts.saveAs}` : null;
     if (saveAs) {
         selected = state.extensionContext.workspaceState.get(saveAs);
     }
@@ -36,7 +36,7 @@ async function quickPickSingle(opts: { values: string[], saveAs?: string, placeH
 
 async function quickPickMulti(opts: { values: string[], saveAs?: string, placeHolder: string }) {
     let selected: string[];
-    let saveAs: string = opts.saveAs ? `qps-${opts.saveAs}` : null;
+    let saveAs: string = opts.saveAs ? `qp-${opts.saveAs}` : null;
     if (saveAs) {
         selected = state.extensionContext.workspaceState.get(saveAs) || [];
     }
