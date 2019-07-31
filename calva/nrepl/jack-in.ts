@@ -220,32 +220,10 @@ function getProjectTypeForName(name: string) {
 let watcher: fs.FSWatcher;
 const TASK_NAME = "Calva Jack-in";
 
-vscode.tasks.onDidStartTaskProcess(e => {
-    if (e.execution.task.name == TASK_NAME) {
-        if (watcher != undefined) {
-            watcher.removeAllListeners();
-        }
-        // Create a watcher to wait for the nREPL port file to appear, and connect + open the repl window at that point.
-        watcher = fs.watch(utilities.getProjectDir(), async (eventType, filename) => {
-            if (filename == ".nrepl-port") {
-                const chan = state.outputChannel();
-                setTimeout(() => { chan.show() }, 1000);
-                state.cursor.set("launching", null);
-                watcher.close();
-                await connector.connect(true, true);
-                chan.appendLine("Jack-in done.\nUse the VS Code task management UI to control the life cycle of the Jack-in task.");
-            }
-        })
-    }
-});
-
 function executeJackInTask(projectType: ProjectType, projectTypeSelection: any, executable: string, args: any, cljTypes: string[], outputChannel: vscode.OutputChannel) {
     state.cursor.set("launching", projectTypeSelection);
     statusbar.update();
     const nreplPortFile = connector.nreplPortFile();
-    if (nreplPortFile && fs.existsSync(nreplPortFile)) {
-        fs.unlinkSync(nreplPortFile);
-    }
     const env = { ...process.env, ...state.config().jackInEnv } as {
         [key: string]: string;
     };
@@ -264,8 +242,29 @@ function executeJackInTask(projectType: ProjectType, projectTypeSelection: any, 
     };
     const folder = vscode.workspace.workspaceFolders[0];
     const task = new vscode.Task(taskDefinition, folder, TASK_NAME, "Calva", execution);
+
     state.analytics().logEvent("REPL", "JackInExecuting", JSON.stringify(cljTypes)).send();
+    if (nreplPortFile && fs.existsSync(nreplPortFile)) {
+        fs.unlinkSync(nreplPortFile);
+    }
     vscode.tasks.executeTask(task).then((v) => {
+        // Create a watcher to wait for the nREPL port file to appear with new content, and connect + open the repl window at that point.
+        if (watcher != undefined) {
+            watcher.removeAllListeners();
+        }
+        watcher = fs.watch(utilities.getProjectDir(), async (eventType, filename) => {
+            if (filename == ".nrepl-port") {
+                if (isWin && eventType != "change") {
+                    return;
+                }
+                const chan = state.outputChannel();
+                setTimeout(() => { chan.show() }, 1000);
+                state.cursor.set("launching", null);
+                watcher.close();
+                await connector.connect(true, true);
+                chan.appendLine("Jack-in done.\nUse the VS Code task management UI to control the life cycle of the Jack-in task.");
+            }
+        });
     }, (reason) => {
         watcher.close();
         outputChannel.appendLine("Error in Jack-in: " + reason);
