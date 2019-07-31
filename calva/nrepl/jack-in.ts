@@ -5,27 +5,9 @@ import * as state from "../state"
 import connector from "../connector";
 import statusbar from "../statusbar";
 import * as shadow from "../shadow"
-//const { parseEdn, parseForms } = require('../../cljs-out/cljs-lib');
 import { parseEdn, parseForms } from "../../cljs-out/cljs-lib";
 
 const isWin = /^win/.test(process.platform);
-
-/** Finds a file in PATH */
-function findInPath(name: string) {
-    const paths = process.env.PATH.split(isWin ? ";" : ":");
-    for (let path of paths) {
-        let fullPath = path + (isWin ? "\\" : "/") + name;
-        if (fs.existsSync(fullPath))
-            return fullPath;
-    }
-}
-
-/** If this looks like a string and we are under windows, escape it in a powershell compatible way. */
-function escapeString(str: string) {
-    if (str.startsWith('"') && str.endsWith('"') && isWin)
-        return str.replace(/\\"/g, "\\`\"");
-    return str;
-}
 
 export function detectProjectType(): string[] {
     let rootDir = utilities.getProjectDir(),
@@ -59,8 +41,6 @@ const leinDependencies = {
 const middleware = ["cider.nrepl/cider-middleware"];
 const cljsMiddleware = ["cider.piggieback/wrap-cljs-repl"];
 
-const initEval = '"(require (quote cider-nrepl.main)) (cider-nrepl.main/init [\\"cider.nrepl/cider-middleware\\", \\"cider.piggieback/wrap-cljs-repl\\"])"';
-
 type ProjectType = {
     name: string;
     cljsTypes: string[];
@@ -68,7 +48,6 @@ type ProjectType = {
     winCmd: string;
     commandLine: (includeCljs: boolean) => any;
     useWhenExists: string;
-    winShell?: string;
 };
 
 const projectTypes: { [id: string]: ProjectType } = {
@@ -77,7 +56,6 @@ const projectTypes: { [id: string]: ProjectType } = {
         cljsTypes: ["Figwheel", "Figwheel Main"],
         cmd: "lein",
         winCmd: "cmd.exe",
-        winShell: "cmd.exe",
         useWhenExists: "project.clj",
         commandLine: async (includeCljs) => {
             let out: string[] = [];
@@ -145,7 +123,6 @@ const projectTypes: { [id: string]: ProjectType } = {
         name: "Boot",
         cmd: "boot",
         winCmd: "boot.exe",
-        winShell: true,
         useWhenExists: "build.boot",      
         commandLine: () => {
             let out: string[] = [];
@@ -160,7 +137,6 @@ const projectTypes: { [id: string]: ProjectType } = {
         cljsTypes: ["Figwheel", "Figwheel Main"],
         cmd: "clojure",
         winCmd: "powershell.exe",
-        winShell: "powershell.exe",
         useWhenExists: "deps.edn",
         commandLine: async (includeCljs) => {
             let out: string[] = [];
@@ -195,7 +171,6 @@ const projectTypes: { [id: string]: ProjectType } = {
         cljsTypes: [],
         cmd: "npx",
         winCmd: "npx.cmd",
-        winShell: null,
         useWhenExists: "shadow-cljs.edn",
         commandLine: async (_includeCljs) => {
             let args: string[] = [];
