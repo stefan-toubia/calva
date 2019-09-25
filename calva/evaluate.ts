@@ -17,93 +17,94 @@ async function evaluateSelection(document = {}, options = {}) {
         topLevel = options["topLevel"] || false,
         asComment = options["comment"] || false;
     if (current.get('connected')) {
-        let client = util.getSession(util.getFileType(doc));
-        let editor = vscode.window.activeTextEditor,
-            selection = editor.selection,
-            codeSelection: vscode.Selection = null,
-            code = "";
+        const client = util.getSession(util.getFileType(doc));
+        if (client) {
+            let editor = vscode.window.activeTextEditor,
+                selection = editor.selection,
+                codeSelection: vscode.Selection = null,
+                code = "";
 
-        if (selection.isEmpty) {
-            state.analytics().logEvent("Evaluation", topLevel ? "TopLevel" : "CurrentForm").send();
-            codeSelection = select.getFormSelection(doc, selection.active, topLevel);
-            code = doc.getText(codeSelection);
-        } else {
-            state.analytics().logEvent("Evaluation", "Selection").send();
-            codeSelection = selection;
-            code = doc.getText(selection);
-        }
+            if (selection.isEmpty) {
+                state.analytics().logEvent("Evaluation", topLevel ? "TopLevel" : "CurrentForm").send();
+                codeSelection = select.getFormSelection(doc, selection.active, topLevel);
+                code = doc.getText(codeSelection);
+            } else {
+                state.analytics().logEvent("Evaluation", "Selection").send();
+                codeSelection = selection;
+                code = doc.getText(selection);
+            }
 
-        if (code.length > 0) {
-            annotations.decorateSelection("", codeSelection, editor, annotations.AnnotationStatus.PENDING);
-            let c = codeSelection.start.character
+            if (code.length > 0) {
+                annotations.decorateSelection("", codeSelection, editor, annotations.AnnotationStatus.PENDING);
+                let c = codeSelection.start.character
 
-            let err: string[] = [], out: string[] = [];
+                let err: string[] = [], out: string[] = [];
 
-            let res = await client.eval("(in-ns '" + util.getNamespace(doc) + ")").value;
+                let res = await client.eval("(in-ns '" + util.getNamespace(doc) + ")").value;
 
-            try {
-                const line = codeSelection.start.line,
-                    column = codeSelection.start.character,
-                    filePath = doc.fileName,
-                    context = client.eval(code, {
-                        file: filePath,
-                        line: line,
-                        column: column,
-                        stdout: m => out.push(m),
-                        stderr: m => err.push(m),
-                        pprint: !!pprint
-                    });
-                let value = await context.value;
-                value = context.pprintOut || value;
+                try {
+                    const line = codeSelection.start.line,
+                        column = codeSelection.start.character,
+                        filePath = doc.fileName,
+                        context = client.eval(code, {
+                            file: filePath,
+                            line: line,
+                            column: column,
+                            stdout: m => out.push(m),
+                            stderr: m => err.push(m),
+                            pprint: !!pprint
+                        });
+                    let value = await context.value;
+                    value = context.pprintOut || value;
 
-                if (replace) {
-                    const indent = `${' '.repeat(c)}`,
-                        edit = vscode.TextEdit.replace(codeSelection, value.replace(/\n/gm, "\n" + indent)),
-                        wsEdit = new vscode.WorkspaceEdit();
-                    wsEdit.set(editor.document.uri, [edit]);
-                    vscode.workspace.applyEdit(wsEdit);
-                    chan.appendLine("Replaced inline.")
-                } else if (asComment) {
-                    const indent = `${' '.repeat(c)}`,
-                        output = value.replace(/\n\r?$/, "").split(/\n\r?/).join(`\n${indent};;    `),
-                        edit = vscode.TextEdit.insert(codeSelection.end, `\n${indent};; => ${output}\n`),
-                        wsEdit = new vscode.WorkspaceEdit();
-                    wsEdit.set(editor.document.uri, [edit]);
-                    vscode.workspace.applyEdit(wsEdit).then((_v) => {
-                        editor.selection = selection;
-                    });
-                    chan.appendLine("Evaluated as comment.")
-                } else {
-                    annotations.decorateSelection(value, codeSelection, editor, annotations.AnnotationStatus.SUCCESS);
-                    annotations.decorateResults(value, false, codeSelection, editor);
+                    if (replace) {
+                        const indent = `${' '.repeat(c)}`,
+                            edit = vscode.TextEdit.replace(codeSelection, value.replace(/\n/gm, "\n" + indent)),
+                            wsEdit = new vscode.WorkspaceEdit();
+                        wsEdit.set(editor.document.uri, [edit]);
+                        vscode.workspace.applyEdit(wsEdit);
+                        chan.appendLine("Replaced inline.")
+                    } else if (asComment) {
+                        const indent = `${' '.repeat(c)}`,
+                            output = value.replace(/\n\r?$/, "").split(/\n\r?/).join(`\n${indent};;    `),
+                            edit = vscode.TextEdit.insert(codeSelection.end, `\n${indent};; => ${output}\n`),
+                            wsEdit = new vscode.WorkspaceEdit();
+                        wsEdit.set(editor.document.uri, [edit]);
+                        vscode.workspace.applyEdit(wsEdit).then((_v) => {
+                            editor.selection = selection;
+                        });
+                        chan.appendLine("Evaluated as comment.")
+                    } else {
+                        annotations.decorateSelection(value, codeSelection, editor, annotations.AnnotationStatus.SUCCESS);
+                        annotations.decorateResults(value, false, codeSelection, editor);
+                    }
+
+                    if (out.length > 0) {
+                        chan.appendLine("stdout:");
+                        chan.appendLine(normalizeNewLines(out));
+                    }
+                    chan.appendLine('=>');
+                    if (pprint) {
+                        chan.appendLine(value);
+                    } else chan.appendLine(value);
+
+                    if (err.length > 0) {
+                        chan.appendLine("Error:")
+                        chan.appendLine(normalizeNewLines(err));
+                    }
+                } catch (e) {
+                    if (!err.length) { // venantius/ultra outputs errors on stdout, it seems.
+                        err = out;
+                    }
+                    if (err.length > 0) {
+                        chan.appendLine("Error:")
+                        chan.appendLine(normalizeNewLines(err));
+                    }
+
+                    const message = err.join("\n");
+                    annotations.decorateSelection(message, codeSelection, editor, annotations.AnnotationStatus.ERROR);
+                    annotations.decorateResults(message, true, codeSelection, editor);
                 }
-
-                if (out.length > 0) {
-                    chan.appendLine("stdout:");
-                    chan.appendLine(normalizeNewLines(out));
-                }
-                chan.appendLine('=>');
-                if (pprint) {
-                    chan.show(true);
-                    chan.appendLine(value);
-                } else chan.appendLine(value);
-
-                if (err.length > 0) {
-                    chan.appendLine("Error:")
-                    chan.appendLine(normalizeNewLines(err));
-                }
-            } catch (e) {
-                if (!err.length) { // venantius/ultra outputs errors on stdout, it seems.
-                    err = out;
-                }
-                if (err.length > 0) {
-                    chan.appendLine("Error:")
-                    chan.appendLine(normalizeNewLines(err));
-                }
-
-                const message = err.join("\n");
-                annotations.decorateSelection(message, codeSelection, editor, annotations.AnnotationStatus.ERROR);
-                annotations.decorateResults(message, true, codeSelection, editor);
             }
         }
     } else
