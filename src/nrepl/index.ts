@@ -1,3 +1,4 @@
+import { Event, EventEmitter } from "vscode";
 import * as net from "net";
 import { BEncoderStream, BDecoderStream } from "./bencode";
 import * as state from './../state';
@@ -5,6 +6,10 @@ import * as replWindow from './../repl-window';
 import * as util from '../utilities';
 import { prettyPrint } from '../../out/cljs-lib/cljs-lib';
 import { PrettyPrintingOptions, disabledPrettyPrinter, getServerSidePrinter } from "../printer";
+import { NReplEvaluationStartedEvent, NReplEvaluationFinishedEvent } from "./events";
+
+const eventEmitter = new EventEmitter<NReplEvaluationStartedEvent | NReplEvaluationFinishedEvent>();
+export const onNReplEvent = eventEmitter.event;
 
 /** An nRREPL client */
 export class NReplClient {
@@ -29,6 +34,7 @@ export class NReplClient {
     ns: string = "user";
 
     private constructor(socket: net.Socket) {
+        // TODO: Emit client connection events
         this.socket = socket;
         this.socket.on("error", e => {
             console.error(e);
@@ -305,14 +311,27 @@ export class NReplSession {
             stderr?: (x: string) => void,
             stdout?: (x: string) => void,
             pprintOptions: PrettyPrintingOptions
-        } = { 
+        } = {
             pprintOptions: disabledPrettyPrinter
         }) {
+
+        eventEmitter.fire(new NReplEvaluationStartedEvent(opts.fileName, opts.filePath));
+
+        const fireEventOnFin = (
+            finalize: ((response: string) => any),
+            createEvent: ((response: string) => any)
+            ) => (response: string) => {
+                eventEmitter.fire(createEvent(response));
+                finalize(response);
+        }
 
         let id = this.client.nextId;
         let evaluation = new NReplEvaluation(id, this, opts.stderr, opts.stdout, null, new Promise((resolve, reject) => {
             this.messageHandlers[id] = (msg) => {
-                evaluation.setHandlers(resolve, reject);
+                evaluation.setHandlers(
+                    fireEventOnFin(resolve, _ => new NReplEvaluationFinishedEvent(opts.fileName, opts.filePath)),
+                    fireEventOnFin(reject, (reason: string) => new NReplEvaluationFinishedEvent(opts.fileName, opts.filePath, reason))
+                    );
                 if (evaluation.onMessage(msg, opts.pprintOptions)) {
                     return true;
                 }
